@@ -10,7 +10,8 @@ using namespace std;
 priority_queue<Bus, vector<Bus>, CompareBus> busQueue;
 queue<string> passengerQueue;
 
-namespace {
+
+// we copy the queue because priority_queue doesn't allow direct search
 bool busIDExists(int id) {
     priority_queue<Bus, vector<Bus>, CompareBus> temp = busQueue;
 
@@ -23,15 +24,11 @@ bool busIDExists(int id) {
 
     return false;
 }
-}
+
 
 void addBus() {
-    int id;
-    int pri;
-    int cap;
-    int depMinutes;
-    string route;
-    string depTime;
+    int id, pri, cap, depMinutes;
+    string route, depTime;
 
     while (true) {
         id = getValidatedInt("\nEnter Bus ID: ", 1);
@@ -45,6 +42,8 @@ void addBus() {
 
     route = getValidatedLine("Enter Route: ");
     depTime = getValidatedTime("Enter Departure Time (HH:MM, example 08:30): ");
+
+    // convert time once so comparisons later are easy
     parseTimeToMinutes(depTime, depMinutes);
 
     pri = getValidatedInt("Enter Priority (lower number = higher priority): ", 1);
@@ -55,11 +54,14 @@ void addBus() {
     cout << "Bus added successfully.\n";
 }
 
+
 void addPassenger() {
     string name = getValidatedLine("Enter Passenger Name: ");
     passengerQueue.push(name);
+
     cout << "Passenger added to waiting queue.\n";
 }
+
 
 void showPassengers() {
     if (passengerQueue.empty()) {
@@ -67,9 +69,8 @@ void showPassengers() {
         return;
     }
 
+    // use a copy so original queue stays unchanged
     queue<string> temp = passengerQueue;
-
-    cout << "\nPassenger Queue:\n";
 
     while (!temp.empty()) {
         cout << "- " << temp.front() << endl;
@@ -77,15 +78,15 @@ void showPassengers() {
     }
 }
 
+
 void showBusSchedule() {
     if (busQueue.empty()) {
         cout << "No buses scheduled.\n";
         return;
     }
 
+    // priority_queue can't be iterated directly → copy it
     priority_queue<Bus, vector<Bus>, CompareBus> temp = busQueue;
-
-    cout << "\nBus Schedule:\n";
 
     while (!temp.empty()) {
         Bus b = temp.top();
@@ -109,6 +110,7 @@ void showBusSchedule() {
     }
 }
 
+
 void cancelBus() {
     if (busQueue.empty()) {
         cout << "No buses available.\n";
@@ -124,14 +126,12 @@ void cancelBus() {
         Bus b = busQueue.top();
         busQueue.pop();
 
+        // we must rebuild the queue because we can't update inside it directly
         if (b.busID == id) {
-            if (b.cancelled) {
-                cout << "Bus " << id << " is already cancelled.\n";
-            } else {
-                b.cancelled = true;
-                cout << "Bus " << id << " cancelled successfully.\n";
-            }
+            b.cancelled = true;
             found = true;
+
+            cout << "Bus " << id << " cancelled successfully.\n";
         }
 
         temp.push(b);
@@ -143,6 +143,7 @@ void cancelBus() {
         cout << "Bus ID not found.\n";
     }
 }
+
 
 void delayBus() {
     if (busQueue.empty()) {
@@ -161,18 +162,18 @@ void delayBus() {
         busQueue.pop();
 
         if (b.busID == id) {
-            if (b.cancelled) {
-                cout << "Cannot delay Bus " << id << " because it is cancelled.\n";
-            } else {
-                b.delayed = true;
-                b.delayMinutes += minutes;
-                b.departureMinutes += minutes;
-                b.departureTime = minutesToTime(b.departureMinutes);
+            // delay changes actual departure time (not just a label)
+            b.delayed = true;
+            b.delayMinutes += minutes;
+            b.departureMinutes += minutes;
 
-                cout << "Bus " << id << " delayed by " << minutes
-                     << " minutes. New departure time: " << b.departureTime << endl;
-            }
+            // convert back to readable time
+            b.departureTime = minutesToTime(b.departureMinutes);
+
             found = true;
+
+            cout << "Bus " << id << " delayed by " << minutes
+                 << " minutes. New departure time: " << b.departureTime << endl;
         }
 
         temp.push(b);
@@ -185,16 +186,16 @@ void delayBus() {
     }
 }
 
+
 void startBoarding() {
     if (busQueue.empty()) {
         cout << "No buses available.\n";
         return;
     }
 
+    // skip cancelled buses before boarding
     while (!busQueue.empty() && busQueue.top().cancelled) {
-        Bus cancelledBus = busQueue.top();
         busQueue.pop();
-        cout << "Skipping cancelled Bus " << cancelledBus.busID << ".\n";
     }
 
     if (busQueue.empty()) {
@@ -210,31 +211,23 @@ void startBoarding() {
          << ", Departure: " << bus.departureTime << ")\n";
 
     int seats = bus.capacity;
-    int boardedCount = 0;
 
+    // take passengers in FIFO order until full
     while (seats > 0 && !passengerQueue.empty()) {
         cout << passengerQueue.front() << " boarded.\n";
         passengerQueue.pop();
         seats--;
-        boardedCount++;
     }
 
-    if (boardedCount == 0) {
-        cout << "No passengers were waiting for boarding.\n";
-    } else {
-        cout << boardedCount << " passenger(s) boarded.\n";
-    }
-
-    if (seats == 0) {
+    if (seats == 0)
         cout << "Bus is full.\n";
-    }
 
-    if (passengerQueue.empty()) {
+    if (passengerQueue.empty())
         cout << "No more passengers waiting.\n";
-    }
 
     cout << "Bus " << bus.busID << " departed.\n";
 }
+
 
 void showMenu() {
     cout << "\n========== CITY BUS TERMINAL SYSTEM ==========\n";
